@@ -1,65 +1,35 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
+## 0926
+## week1 assignment spell checker by claire
 
 import re
 from collections import Counter
+import streamlit as st
 
-
-# In[2]:
-
-
-def words(text): return re.findall(r'\w+', text.lower())
+def words(text): return re.findall(r"[^\d\W]+\'*[^\d\W]+", text.lower())
+## match all words without numbers
+## include ' if there's any
 
 WORDS = Counter(words(open('big.txt').read()))
-
-
-# In[31]:
-
-
-##print(sum(WORDS.values()))
-
-
-# In[36]:
-
 
 def P(word, N=sum(WORDS.values())): 
     "Probability of `word`."
     return WORDS[word] / N
 
-
-# In[37]:
-
-
 def correction(word): 
     "Most probable spelling correction for word."
     return max(candidates(word), key=P)
 
-
-# In[4]:
-
-
 def candidates(word): 
     "Generate possible spelling corrections for word."
-    return (known([word]) or known(edits1(word)) or known(edits2(word)) or [word])
-
-
-# In[5]:
-
-
+    return (known([word]) | known(edits1(word)) or known(edits2(word)) or [word])
+    
 def known(words): 
     "The subset of `words` that appear in the dictionary of WORDS."
     return set(w for w in words if w in WORDS)
 
-
-# In[6]:
-
-
 def edits1(word):
     "All edits that are one edit away from `word`."
-    letters    = 'abcdefghijklmnopqrstuvwxyz'
+    letters    = "abcdefghijklmnopqrstuvwxyz'"
     splits     = [(word[:i], word[i:])    for i in range(len(word) + 1)]
     deletes    = [L + R[1:]               for L, R in splits if R]
     transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R)>1]
@@ -67,97 +37,49 @@ def edits1(word):
     inserts    = [L + c + R               for L, R in splits for c in letters]
     return set(deletes + transposes + replaces + inserts)
 
-
-# In[7]:
-
-
 def edits2(word): 
     "All edits that are two edits away from `word`."
     return (e2 for e1 in edits1(word) for e2 in edits1(e1))
 
-
-# In[38]:
-
-
-correction('doggy')
+## Evaluation
 
 
-# # Evaluation
 
-# In[16]:
+#### spelltest(Testset(open('spell-testset1.txt'))) # Development set
 
 
-def unit_tests():
-    assert correction('speling') == 'spelling'              # insert
-    assert correction('korrectud') == 'corrected'           # replace 2
-    assert correction('bycycle') == 'bicycle'               # replace
-    assert correction('inconvient') == 'inconvenient'       # insert 2
-    assert correction('arrainged') == 'arranged'            # delete
-    assert correction('peotry') =='poetry'                  # transpose
-    assert correction('peotryy') =='poetry'                 # transpose + delete
-    assert correction('word') == 'word'                     # known
-    assert correction('quintessential') == 'quintessential' # unknown
-    assert words('This is a TEST.') == ['this', 'is', 'a', 'test']
-    assert Counter(words('This is a test. 123; A TEST this is.')) == (
-           Counter({'123': 1, 'a': 2, 'is': 2, 'test': 2, 'this': 2}))
-    ##assert len(WORDS) == 32192
-    assert sum(WORDS.values()) == 1115585
-    assert WORDS.most_common(10) == [
-     ('the', 79808),
-     ('of', 40024),
-     ('and', 38311),
-     ('to', 28765),
-     ('in', 22020),
-     ('a', 21124),
-     ('that', 12512),
-     ('he', 12401),
-     ('was', 11410),
-     ('it', 10681)]
-    assert WORDS['the'] == 79808
-    assert P('quintessential') == 0
-    assert 0.07 < P('the') < 0.08
-    return 'unit_tests pass'
+## App
 
-def spelltest(tests, verbose=False):
-    "Run correction(wrong) on all (right, wrong) pairs; report results."
-    import time
-    start = time.process_time()
-    good, unknown = 0, 0
-    n = len(tests)
-    for right, wrong in tests:
-        w = correction(wrong)
-        good += (w == right)
-        if w != right:
-            unknown += (right not in WORDS)
-            if verbose:
-                print('correction({}) => {} ({}); expected {} ({})'
-                      .format(wrong, w, WORDS[w], right, WORDS[right]))
-    dt = time.process_time() - start
-    print('{:.0%} of {} correct ({:.0%} unknown) at {:.0f} words per second '
-          .format(good / n, n, unknown / n, n / dt))
+st.title("Spell Checker Demo")
+
+origin = st.sidebar.checkbox("Show original word", value=False, key=None, help=None)
+
+input1  = ""
+input1 = st.selectbox("Choose a word", ['love','happy', 'teecher'])
+
+
+input2 = ""
+input2 = st.text_input("Key in a word:")
+
     
-def Testset(lines):
-    "Parse 'right: wrong1 wrong2' lines into [('right', 'wrong1'), ('right', 'wrong2')] pairs."
-    return [(right, wrong)
-            for (right, wrongs) in (line.split(':') for line in lines)
-            for wrong in wrongs.split()]
-
-
-# In[17]:
-
-
-print(unit_tests())
-
-
-# In[37]:
-
-
-spelltest(Testset(open('spell-testset1.txt'))) # Development set
-spelltest(Testset(open('spell-testset2.txt'))) # Final test set
-
-
-# In[ ]:
-
-
-
-
+test_input = ""
+if (input1 != ""):
+    test_input = input1
+if (input2 != ""):
+    test_input = input2
+    
+if (test_input != ""):
+    if (origin):
+        st.text(correction(test_input))
+        
+    if (test_input == correction(test_input)):
+        st.success("Correct!", icon="✅")
+        st.balloons()
+        test_input = ""
+        input2 = ""
+        input1 = ""
+    else:
+        st.error("Wrong", icon="🚨")
+        test_input = ""
+        input2 = ""
+        input1 = ""
